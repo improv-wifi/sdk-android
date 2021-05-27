@@ -6,7 +6,7 @@ interface ImprovManagerCallback {
 
     fun onDeviceFound(device: ImprovDevice)
 
-    fun onConnectionStateChange(connected: Boolean)
+    fun onConnectionStateChange(device: ImprovDevice?)
 
     fun onStateChange(state: DeviceState)
 

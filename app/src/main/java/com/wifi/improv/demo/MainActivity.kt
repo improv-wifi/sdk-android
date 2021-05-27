@@ -6,10 +6,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import com.improv.wifi.*
 import com.wifi.improv.ImprovDevice
 import com.wifi.improv.demo.ui.theme.ImprovTheme
@@ -46,7 +50,7 @@ fun ImprovMain(
     ImprovTheme {
         // A surface container using the 'background' color from the theme
         Surface(color = MaterialTheme.colors.background) {
-            Column {
+            Column(modifier = Modifier.fillMaxHeight()) {
                 Row {
                     Button(onClick = findDevices) {
                         Text("Scan for Devices")
@@ -62,6 +66,7 @@ fun ImprovMain(
                 )
                 Divider()
                 ImprovStatus(
+                    name = improvScreenState?.name,
                     address = improvScreenState?.address,
                     deviceState = improvScreenState?.deviceState,
                     errorState = improvScreenState?.errorState
@@ -76,12 +81,14 @@ fun ImprovMain(
 
 @Composable
 fun ImprovStatus(
+    name: String?,
     address: String?,
     deviceState: String?,
     errorState: String?
 ){
     Column {
         Text(text = "Connected Device:")
+        Text(text = "Name: $name")
         Text(text = "Address: $address")
         Text(text = "Device State: $deviceState")
         Text(text = "Error State: $errorState")
@@ -105,8 +112,8 @@ fun ImprovDeviceList(
 fun ImprovWifiEntry(
     sendWifi: (String, String)->Unit
 ){
-    var ssid by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    var ssid by remember { mutableStateOf("I am IRON LAN") }
+    var pass by remember { mutableStateOf("OuiOuiBarry") }
 
     TextField(
         value = ssid,

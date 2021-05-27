@@ -9,8 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.ParcelUuid
 import android.util.Log
-import com.wifi.improv.ImprovDevice
+import com.wifi.improv.*
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.text.StringBuilder
 
 // https://punchthrough.com/android-ble-guide/
@@ -52,7 +53,7 @@ class ImprovManager(
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.i(TAG, "Successfully connected to $deviceAddress, discovering services.")
                     bluetoothGatt = gatt
-                    callback.onConnectionStateChange(true)
+                    callback.onConnectionStateChange(ImprovDevice(gatt.device.name, gatt.device.address, gatt.device))
 
                     gatt.discoverServices()
 
@@ -60,14 +61,17 @@ class ImprovManager(
                     Log.w(TAG, "Successfully disconnected from $deviceAddress")
                     gatt.close()
                     bluetoothGatt = null
-                    callback.onConnectionStateChange(false)
+                    callback.onConnectionStateChange(null)
                 }
             } else {
                 Log.w(TAG, "Error $status encountered for $deviceAddress! Disconnecting...")
                 gatt.close()
                 bluetoothGatt = null
-                callback.onConnectionStateChange(false)
+                callback.onConnectionStateChange(null)
             }
+
+            if (pendingOperation is Connect)
+                signalEndOfOperation()
         }
 
         override fun onCharacteristicChanged(
@@ -83,11 +87,6 @@ class ImprovManager(
                         callback.onStateChange(deviceState)
                     else
                         Log.e(TAG, "Unable to determine Current State")
-
-                    // Can't call too quick so I'll do them in sequence.
-                    val service = gatt.getService(UUID_SERVICE_PROVISION)
-                    val errorStateChar = service.getCharacteristic(UUID_CHAR_ERROR_STATE)
-                    gatt.readCharacteristic(errorStateChar)
                 }
                 UUID_CHAR_ERROR_STATE -> {
                     Log.i(TAG, "Error State has changed to $value.")
@@ -110,6 +109,8 @@ class ImprovManager(
             } else {
                 Log.e(TAG, "Char ${characteristic.uuid} not written!!")
             }
+            if (pendingOperation is CharacteristicWrite)
+                signalEndOfOperation()
         }
 
         override fun onCharacteristicRead(
@@ -123,6 +124,8 @@ class ImprovManager(
             } else {
                 Log.e(TAG, "Char ${characteristic.uuid} not read!!")
             }
+            if (pendingOperation is CharacteristicRead)
+                signalEndOfOperation()
         }
 
         override fun onDescriptorWrite(
@@ -135,6 +138,8 @@ class ImprovManager(
             } else {
                 Log.e(TAG, "Desc ${descriptor.uuid} not written!!")
             }
+            if (pendingOperation is DescriptorWrite)
+                signalEndOfOperation()
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
@@ -150,22 +155,23 @@ class ImprovManager(
 
             val service = gatt.getService(UUID_SERVICE_PROVISION)
             val currentStateChar = service.getCharacteristic(UUID_CHAR_CURRENT_STATE)
-            gatt.readCharacteristic(currentStateChar)
+            enqueueOperation(CharacteristicRead(currentStateChar))
             if(gatt.setCharacteristicNotification(currentStateChar, true)) {
                 Log.i(TAG, "Registered for Current State Notifications, descriptors: ${currentStateChar.descriptors }}")
                 currentStateChar.descriptors.firstOrNull()?.let {
                     it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    gatt.writeDescriptor(it)
+                    enqueueOperation(DescriptorWrite(it))
                 }
             } else
                 Log.e(TAG, "Unable to register for Current State Notifications")
 
             val errorStateChar = service.getCharacteristic(UUID_CHAR_ERROR_STATE)
+            enqueueOperation(CharacteristicRead(errorStateChar))
             if(gatt.setCharacteristicNotification(errorStateChar, true)) {
                 Log.i(TAG, "Registered for Error State Notifications")
                 errorStateChar.descriptors.firstOrNull()?.let {
                     it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    gatt.writeDescriptor(it)
+                    enqueueOperation(DescriptorWrite(it))
                 }
             } else
                 Log.e(TAG, "Unable to register for Error State Notifications")
@@ -191,8 +197,7 @@ class ImprovManager(
     fun connectToDevice(device: ImprovDevice){
         Log.i(TAG, "Connect to Device ${device.address}")
         stopScan()
-        Thread.sleep(100)
-        device.btDevice.connectGatt(context, true, gattCallback)
+        enqueueOperation(Connect(device.btDevice))
     }
 
     fun identifyDevice(){
@@ -230,7 +235,70 @@ class ImprovManager(
         rpc.value = payload.toUByteArray().toByteArray()
 
         Log.d(TAG, "Sending ${payload.map { it.toString() }.toList()}")
-        bluetoothGatt!!.writeCharacteristic(rpc)
+        enqueueOperation(CharacteristicWrite(rpc))
     }
 
+    private val operationQueue = ConcurrentLinkedQueue<BleOperationType>()
+    private var pendingOperation: BleOperationType? = null
+
+    @Synchronized
+    private fun enqueueOperation(operation: BleOperationType) {
+        operationQueue.add(operation)
+        if (pendingOperation == null) {
+            doNextOperation()
+        }
+    }
+
+    @Synchronized
+    private fun doNextOperation() {
+        if (pendingOperation != null) {
+            Log.e(TAG, "doNextOperation() called when an operation is pending! Aborting.")
+            return
+        }
+
+        val operation = operationQueue.poll() ?: run {
+            Log.v(TAG, "Operation queue empty, returning")
+            return
+        }
+        pendingOperation = operation
+
+        when (operation) {
+            is Connect -> {
+                operation.device.connectGatt(context, true, gattCallback)
+            }
+            is Disconnect -> {
+                // Noop?
+            }
+            is CharacteristicWrite -> {
+                if(bluetoothGatt != null) {
+                    bluetoothGatt!!.writeCharacteristic(operation.char)
+                } else {
+                    Log.e(TAG, "Tried writing characteristic without device connected.")
+                }
+            }
+            is CharacteristicRead -> {
+                if(bluetoothGatt != null) {
+                    bluetoothGatt!!.readCharacteristic(operation.char)
+                } else {
+                    Log.e(TAG, "Tried reading characteristic without device connected.")
+                }
+            }
+            is DescriptorWrite -> {
+                if(bluetoothGatt != null) {
+                    bluetoothGatt!!.writeDescriptor(operation.desc)
+                } else {
+                    Log.e(TAG, "Tried writing descriptor without device connected.")
+                }
+            }
+            else -> { error("Unhandled Operation!")}
+        }
+    }
+    @Synchronized
+    private fun signalEndOfOperation() {
+        Log.d(TAG, "End of $pendingOperation")
+        pendingOperation = null
+        if (operationQueue.isNotEmpty()) {
+            doNextOperation()
+        }
+    }
 }

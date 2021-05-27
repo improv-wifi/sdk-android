@@ -17,7 +17,7 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
     val improvState: LiveData<ImprovScreenState> = _improvState
 
     val devices = mutableSetOf<ImprovDevice>()
-    var connected: Boolean = false
+    var connectedDevice: ImprovDevice? = null
     var deviceState: DeviceState? = null
     var errorState: ErrorState? = null
 
@@ -25,8 +25,9 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
         viewModelScope.launch {
             _improvState.value = ImprovScreenState(
                 devices,
-                "",
-                connected,
+                connectedDevice?.name?: "",
+                connectedDevice?.address?:"",
+                connectedDevice != null,
                 deviceState.toString(),
                 errorState.toString()
             )
@@ -38,8 +39,12 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
         update()
     }
 
-    override fun onConnectionStateChange(connected: Boolean) {
-        this.connected = connected
+    override fun onConnectionStateChange(device: ImprovDevice?) {
+        this.connectedDevice = device
+        if (connectedDevice == null){
+            deviceState = null
+            errorState = null
+        }
         update()
     }
 
@@ -57,6 +62,7 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
 @Immutable
 data class ImprovScreenState(
     val devices: Set<ImprovDevice>,
+    val name: String,
     val address: String,
     val btConnected: Boolean,
     val deviceState: String,
