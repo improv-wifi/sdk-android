@@ -35,12 +35,14 @@ class ImprovManager(
     private val scanFilter = ScanFilter.Builder().setServiceUuid(ParcelUuid(UUID_SERVICE_PROVISION)).build()
     private val scanSettings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
+    private val foundDevices = mutableMapOf<String, BluetoothDevice>()
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             with(result.device) {
                 Log.i(TAG, "Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
-                // TODO: get state and error state
-                callback.onDeviceFound(ImprovDevice(name, address, this))
+                foundDevices[address] = this
+                callback.onDeviceFound(ImprovDevice(name, address))
             }
         }
     }
@@ -53,7 +55,7 @@ class ImprovManager(
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.i(TAG, "Successfully connected to $deviceAddress, discovering services.")
                     bluetoothGatt = gatt
-                    callback.onConnectionStateChange(ImprovDevice(gatt.device.name, gatt.device.address, gatt.device))
+                    callback.onConnectionStateChange(ImprovDevice(gatt.device.name, gatt.device.address))
 
                     gatt.discoverServices()
 
@@ -184,6 +186,7 @@ class ImprovManager(
     fun stopScan(){
         if (isScanning){
             scanner.stopScan(scanCallback)
+            callback.onScanningStateChange(false)
         }
         isScanning = false
     }
@@ -191,13 +194,18 @@ class ImprovManager(
     fun findDevices(){
         Log.i(TAG, "Find Devices")
         isScanning = true
+        callback.onScanningStateChange(true)
         scanner.startScan(listOf(scanFilter), scanSettings, scanCallback)
     }
 
     fun connectToDevice(device: ImprovDevice){
         Log.i(TAG, "Connect to Device ${device.address}")
         stopScan()
-        enqueueOperation(Connect(device.btDevice))
+        if(foundDevices.containsKey(device.address)) {
+            enqueueOperation(Connect(foundDevices[device.address]!!))
+        } else {
+            Log.e(TAG, "Tried to connect to a device we didn't find?")
+        }
     }
 
     fun identifyDevice(){
