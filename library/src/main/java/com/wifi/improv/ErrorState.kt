@@ -1,4 +1,4 @@
-package com.improv.wifi
+package com.wifi.improv
 
 enum class ErrorState(val value: UByte) {
     NO_ERROR(0.toUByte()),

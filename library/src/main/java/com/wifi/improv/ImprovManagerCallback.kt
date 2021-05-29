@@ -1,6 +1,4 @@
-package com.improv.wifi
-
-import com.wifi.improv.ImprovDevice
+package com.wifi.improv
 
 interface ImprovManagerCallback {
 

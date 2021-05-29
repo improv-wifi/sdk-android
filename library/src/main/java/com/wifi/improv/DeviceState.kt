@@ -1,4 +1,4 @@
-package com.improv.wifi
+package com.wifi.improv
 
 enum class DeviceState(val value: UByte) {
     AUTHORIZATION_REQUIRED(1.toUByte()),

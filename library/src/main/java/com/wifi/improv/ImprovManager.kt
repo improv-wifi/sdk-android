@@ -1,4 +1,4 @@
-package com.improv.wifi
+package com.wifi.improv
 
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
@@ -6,15 +6,11 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
-import android.content.Intent
 import android.os.ParcelUuid
 import android.util.Log
-import com.wifi.improv.*
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.text.StringBuilder
 
-// https://punchthrough.com/android-ble-guide/
 class ImprovManager(
     private val context: Context,
     private val callback: ImprovManagerCallback
@@ -23,17 +19,22 @@ class ImprovManager(
     companion object {
         private const val TAG = "ImprovManager"
 
-        val ENABLE_BT_INTENT = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-        private val UUID_SERVICE_PROVISION: UUID = UUID.fromString("00467768-6228-2272-4663-277478268000")
-        private val UUID_CHAR_CURRENT_STATE: UUID = UUID.fromString("00467768-6228-2272-4663-277478268001")
-        private val UUID_CHAR_ERROR_STATE: UUID = UUID.fromString("00467768-6228-2272-4663-277478268002")
+        private val UUID_SERVICE_PROVISION: UUID =
+            UUID.fromString("00467768-6228-2272-4663-277478268000")
+        private val UUID_CHAR_CURRENT_STATE: UUID =
+            UUID.fromString("00467768-6228-2272-4663-277478268001")
+        private val UUID_CHAR_ERROR_STATE: UUID =
+            UUID.fromString("00467768-6228-2272-4663-277478268002")
         private val UUID_CHAR_RPC: UUID = UUID.fromString("00467768-6228-2272-4663-277478268003")
     }
 
-    private val bluetoothManager: BluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val bluetoothManager: BluetoothManager =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val scanner = bluetoothManager.adapter.bluetoothLeScanner
-    private val scanFilter = ScanFilter.Builder().setServiceUuid(ParcelUuid(UUID_SERVICE_PROVISION)).build()
-    private val scanSettings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+    private val scanFilter =
+        ScanFilter.Builder().setServiceUuid(ParcelUuid(UUID_SERVICE_PROVISION)).build()
+    private val scanSettings =
+        ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
     private val foundDevices = mutableMapOf<String, BluetoothDevice>()
 
@@ -55,7 +56,12 @@ class ImprovManager(
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.i(TAG, "Successfully connected to $deviceAddress, discovering services.")
                     bluetoothGatt = gatt
-                    callback.onConnectionStateChange(ImprovDevice(gatt.device.name, gatt.device.address))
+                    callback.onConnectionStateChange(
+                        ImprovDevice(
+                            gatt.device.name,
+                            gatt.device.address
+                        )
+                    )
 
                     gatt.discoverServices()
 
@@ -80,8 +86,9 @@ class ImprovManager(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            val value = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
-            when(characteristic.uuid){
+            val value =
+                characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
+            when (characteristic.uuid) {
                 UUID_CHAR_CURRENT_STATE -> {
                     Log.i(TAG, "Current State has changed to $value.")
                     val deviceState = DeviceState.values().firstOrNull { it.value == value }
@@ -145,9 +152,9 @@ class ImprovManager(
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            for (service in gatt.services){
+            for (service in gatt.services) {
                 val sb = StringBuilder("Found service: ${service.uuid}")
-                for (char in service.characteristics){
+                for (char in service.characteristics) {
                     sb.append("\n\tChar: ${char.uuid}, Value: ${char.value}")
                 }
                 Log.i(TAG, sb.toString())
@@ -158,8 +165,11 @@ class ImprovManager(
             val service = gatt.getService(UUID_SERVICE_PROVISION)
             val currentStateChar = service.getCharacteristic(UUID_CHAR_CURRENT_STATE)
             enqueueOperation(CharacteristicRead(currentStateChar))
-            if(gatt.setCharacteristicNotification(currentStateChar, true)) {
-                Log.i(TAG, "Registered for Current State Notifications, descriptors: ${currentStateChar.descriptors }}")
+            if (gatt.setCharacteristicNotification(currentStateChar, true)) {
+                Log.i(
+                    TAG,
+                    "Registered for Current State Notifications, descriptors: ${currentStateChar.descriptors}}"
+                )
                 currentStateChar.descriptors.firstOrNull()?.let {
                     it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                     enqueueOperation(DescriptorWrite(it))
@@ -169,7 +179,7 @@ class ImprovManager(
 
             val errorStateChar = service.getCharacteristic(UUID_CHAR_ERROR_STATE)
             enqueueOperation(CharacteristicRead(errorStateChar))
-            if(gatt.setCharacteristicNotification(errorStateChar, true)) {
+            if (gatt.setCharacteristicNotification(errorStateChar, true)) {
                 Log.i(TAG, "Registered for Error State Notifications")
                 errorStateChar.descriptors.firstOrNull()?.let {
                     it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
@@ -183,33 +193,33 @@ class ImprovManager(
     private var isScanning = false
     private var bluetoothGatt: BluetoothGatt? = null
 
-    fun stopScan(){
-        if (isScanning){
+    fun stopScan() {
+        if (isScanning) {
             scanner.stopScan(scanCallback)
             callback.onScanningStateChange(false)
         }
         isScanning = false
     }
 
-    fun findDevices(){
+    fun findDevices() {
         Log.i(TAG, "Find Devices")
         isScanning = true
         callback.onScanningStateChange(true)
         scanner.startScan(listOf(scanFilter), scanSettings, scanCallback)
     }
 
-    fun connectToDevice(device: ImprovDevice){
+    fun connectToDevice(device: ImprovDevice) {
         Log.i(TAG, "Connect to Device ${device.address}")
         stopScan()
-        if(foundDevices.containsKey(device.address)) {
+        if (foundDevices.containsKey(device.address)) {
             enqueueOperation(Connect(foundDevices[device.address]!!))
         } else {
             Log.e(TAG, "Tried to connect to a device we didn't find?")
         }
     }
 
-    fun identifyDevice(){
-        if(bluetoothGatt == null) {
+    fun identifyDevice() {
+        if (bluetoothGatt == null) {
             error("Not Connected to a Device!")
         }
         bluetoothGatt?.let {
@@ -221,9 +231,9 @@ class ImprovManager(
 
     }
 
-    fun sendWifi(ssid: String, password: String){
+    fun sendWifi(ssid: String, password: String) {
         Log.i(TAG, "Send Wifi")
-        if(bluetoothGatt == null){
+        if (bluetoothGatt == null) {
             error("Not Connected to a Device!")
         }
         bluetoothGatt?.let {
@@ -231,13 +241,14 @@ class ImprovManager(
             if (rpc != null) {
                 val encodedSsid = ssid.encodeToByteArray()
                 val encodedPassword = password.encodeToByteArray()
-                val data = arrayOf(encodedSsid.size.toUByte()) + encodedSsid.toUByteArray() + encodedPassword.size.toUByte() + encodedPassword.toUByteArray()
+                val data =
+                    arrayOf(encodedSsid.size.toUByte()) + encodedSsid.toUByteArray() + encodedPassword.size.toUByte() + encodedPassword.toUByteArray()
                 sendRpc(rpc, RpcCommand.SEND_WIFI, data)
             }
         }
     }
 
-    private fun sendRpc(rpc: BluetoothGattCharacteristic, command: RpcCommand, data: Array<UByte>){
+    private fun sendRpc(rpc: BluetoothGattCharacteristic, command: RpcCommand, data: Array<UByte>) {
         val payload = arrayOf(command.value, data.size.toUByte()) + data + 0.toUByte()
         payload[payload.size - 1] = payload.reduce { sum, cur -> (sum + cur).toUByte() }
         rpc.value = payload.toUByteArray().toByteArray()
@@ -278,29 +289,32 @@ class ImprovManager(
                 // Noop?
             }
             is CharacteristicWrite -> {
-                if(bluetoothGatt != null) {
+                if (bluetoothGatt != null) {
                     bluetoothGatt!!.writeCharacteristic(operation.char)
                 } else {
                     Log.e(TAG, "Tried writing characteristic without device connected.")
                 }
             }
             is CharacteristicRead -> {
-                if(bluetoothGatt != null) {
+                if (bluetoothGatt != null) {
                     bluetoothGatt!!.readCharacteristic(operation.char)
                 } else {
                     Log.e(TAG, "Tried reading characteristic without device connected.")
                 }
             }
             is DescriptorWrite -> {
-                if(bluetoothGatt != null) {
+                if (bluetoothGatt != null) {
                     bluetoothGatt!!.writeDescriptor(operation.desc)
                 } else {
                     Log.e(TAG, "Tried writing descriptor without device connected.")
                 }
             }
-            else -> { error("Unhandled Operation!")}
+            else -> {
+                error("Unhandled Operation!")
+            }
         }
     }
+
     @Synchronized
     private fun signalEndOfOperation() {
         Log.d(TAG, "End of $pendingOperation")

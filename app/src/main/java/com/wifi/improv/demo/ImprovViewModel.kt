@@ -5,13 +5,13 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.improv.wifi.DeviceState
-import com.improv.wifi.ErrorState
+import com.wifi.improv.DeviceState
+import com.wifi.improv.ErrorState
 import com.wifi.improv.ImprovDevice
-import com.improv.wifi.ImprovManagerCallback
+import com.wifi.improv.ImprovManagerCallback
 import kotlinx.coroutines.launch
 
-class ImprovViewModel: ViewModel(), ImprovManagerCallback {
+class ImprovViewModel : ViewModel(), ImprovManagerCallback {
 
     private val _improvState = MutableLiveData<ImprovScreenState>()
     val improvState: LiveData<ImprovScreenState> = _improvState
@@ -22,13 +22,13 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
     var deviceState: DeviceState? = null
     var errorState: ErrorState? = null
 
-    private fun update(){
+    private fun update() {
         viewModelScope.launch {
             _improvState.value = ImprovScreenState(
                 scanning,
                 devices.toList(),
-                connectedDevice?.name?: "",
-                connectedDevice?.address?:"",
+                connectedDevice?.name ?: "",
+                connectedDevice?.address ?: "",
                 connectedDevice != null,
                 deviceState.toString(),
                 errorState.toString()
@@ -48,7 +48,7 @@ class ImprovViewModel: ViewModel(), ImprovManagerCallback {
 
     override fun onConnectionStateChange(device: ImprovDevice?) {
         this.connectedDevice = device
-        if (connectedDevice == null){
+        if (connectedDevice == null) {
             deviceState = null
             errorState = null
         }
