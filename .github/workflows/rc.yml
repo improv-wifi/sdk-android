@@ -2,7 +2,7 @@ name: RC
 
 on:
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
 
@@ -22,4 +22,17 @@ jobs:
       - uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: assets.txt
+          asset_path: ./library/build/outputs/aar/library-debug.aar
+          asset_name: improv-sdk_debug.aar
+
+      - uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./library/build/outputs/aar/library-release.aar
+          asset_name: improv-sdk_release.aar
+
+      - uses: shogo82148/actions-upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./app/build/outputs/apk/debug/app-debug.apk
+          asset_name: demo.apk

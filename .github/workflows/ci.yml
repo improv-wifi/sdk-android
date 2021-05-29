@@ -28,4 +28,4 @@ jobs:
       - name: Archive Demo Build
         uses: kittaakos/upload-artifact-as-is@v0
         with:
-          path: ./app/outputs/apk/debug/*.apk
+          path: ./app/build/outputs/apk/debug/*.apk
