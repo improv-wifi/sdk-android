@@ -1,7 +1,7 @@
 package com.wifi.improv
 
 data class ImprovDevice(
-    val name: String,
+    val name: String?,
     val address: String
 ) {
     override fun equals(other: Any?): Boolean {
