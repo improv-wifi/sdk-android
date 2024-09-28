@@ -94,7 +94,7 @@ class ImprovManager(
                     val value =
                         characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
                     Log.i(TAG, "Current State has changed to $value.")
-                    val deviceState = DeviceState.entries.firstOrNull { it.value == value }
+                    val deviceState = DeviceState.values().firstOrNull { it.value == value }
                     if (deviceState != null)
                         callback.onStateChange(deviceState)
                     else
@@ -104,7 +104,7 @@ class ImprovManager(
                     val value =
                         characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
                     Log.i(TAG, "Error State has changed to $value.")
-                    val errorState = ErrorState.entries.firstOrNull { it.value == value }
+                    val errorState = ErrorState.values().firstOrNull { it.value == value }
                     if (errorState != null)
                         callback.onErrorStateChange(errorState)
                     else
