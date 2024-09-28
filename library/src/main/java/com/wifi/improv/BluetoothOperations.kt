@@ -9,6 +9,9 @@ sealed class BleOperationType
 data class Connect(val device: BluetoothDevice) : BleOperationType()
 data class Disconnect(val device: BluetoothDevice) : BleOperationType()
 
+object DiscoverServices: BleOperationType()
+object RequestLargeMtu: BleOperationType()
+
 data class CharacteristicRead(val char: BluetoothGattCharacteristic) : BleOperationType()
 data class CharacteristicWrite(val char: BluetoothGattCharacteristic) : BleOperationType()
 

@@ -114,7 +114,8 @@ fun ImprovMain(
                         name = screenState.name,
                         address = screenState.address,
                         deviceState = screenState.deviceState,
-                        errorState = screenState.errorState
+                        errorState = screenState.errorState,
+                        rpcResult = screenState.rpcResult
                     )
                     Spacer(Modifier.padding(5.dp))
                 }
@@ -132,7 +133,8 @@ fun ImprovStatus(
     name: String?,
     address: String?,
     deviceState: String?,
-    errorState: String?
+    errorState: String?,
+    rpcResult: List<String>
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column {
@@ -144,6 +146,7 @@ fun ImprovStatus(
             Text(text = "Address: $address")
             Text(text = "Device State: $deviceState")
             Text(text = "Error State: $errorState")
+            Text(text = "RPC Result: $rpcResult")
         }
     }
 }
@@ -220,7 +223,8 @@ fun DefaultPreview() {
         "12:34:56:78",
         true,
         DeviceState.AUTHORIZED.toString(),
-        "errorState"
+        "errorState",
+        listOf()
     )
     ImprovMain(screenState = improvScreenState, {}, {}, {}, { _, _ -> })
 }
