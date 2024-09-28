@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +18,6 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.wifi.improv.DeviceState
 import com.wifi.improv.ImprovDevice
@@ -28,11 +28,17 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val TAG = "MainActivity"
-        const val LOCATION_PERM_REQUEST = 42
     }
 
     private lateinit var improv: ImprovManager
     private val viewModel: ImprovViewModel by viewModels()
+
+    private val requestPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            Log.i(TAG, "Got location permission!")
+            improv.findDevices()
+        }
+    }
 
     private fun findDevices() {
         // make sure we have permissions!
@@ -41,11 +47,7 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_DENIED
         ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERM_REQUEST
-            )
+            requestPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             improv.findDevices()
         }
@@ -64,18 +66,6 @@ class MainActivity : ComponentActivity() {
                 connect = { improv.connectToDevice(it) },
                 sendWifi = { ssid, pass -> improv.sendWifi(ssid, pass) }
             )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERM_REQUEST && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            Log.i(TAG, "Got location permission!")
-            improv.findDevices()
         }
     }
 }
