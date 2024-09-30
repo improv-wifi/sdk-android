@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId "com.wifi.improv.demo"
         minSdk 21
-        targetSdk 30
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
