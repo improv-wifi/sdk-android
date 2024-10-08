@@ -11,4 +11,6 @@ interface ImprovManagerCallback {
     fun onStateChange(state: DeviceState)
 
     fun onErrorStateChange(errorState: ErrorState)
+
+    fun onRpcResult(result: List<String>)
 }

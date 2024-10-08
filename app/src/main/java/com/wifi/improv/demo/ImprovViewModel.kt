@@ -21,6 +21,7 @@ class ImprovViewModel : ViewModel(), ImprovManagerCallback {
     var connectedDevice: ImprovDevice? = null
     var deviceState: DeviceState? = null
     var errorState: ErrorState? = null
+    var rpcResult = listOf<String>()
 
     private fun update() {
         viewModelScope.launch {
@@ -31,7 +32,8 @@ class ImprovViewModel : ViewModel(), ImprovManagerCallback {
                 connectedDevice?.address ?: "",
                 connectedDevice != null,
                 deviceState.toString(),
-                errorState.toString()
+                errorState.toString(),
+                rpcResult
             )
         }
     }
@@ -64,6 +66,11 @@ class ImprovViewModel : ViewModel(), ImprovManagerCallback {
         this.errorState = errorState
         update()
     }
+
+    override fun onRpcResult(result: List<String>) {
+        this.rpcResult = result
+        update()
+    }
 }
 
 @Immutable
@@ -74,5 +81,6 @@ data class ImprovScreenState(
     val address: String,
     val btConnected: Boolean,
     val deviceState: String,
-    val errorState: String
+    val errorState: String,
+    val rpcResult: List<String>
 )

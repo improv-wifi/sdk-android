@@ -27,7 +27,10 @@ class ImprovManager(
             UUID.fromString("00467768-6228-2272-4663-277478268001")
         private val UUID_CHAR_ERROR_STATE: UUID =
             UUID.fromString("00467768-6228-2272-4663-277478268002")
-        private val UUID_CHAR_RPC: UUID = UUID.fromString("00467768-6228-2272-4663-277478268003")
+        private val UUID_CHAR_RPC: UUID =
+            UUID.fromString("00467768-6228-2272-4663-277478268003")
+        private val UUID_CHAR_RPC_RESULT: UUID =
+            UUID.fromString("00467768-6228-2272-4663-277478268004")
     }
 
     private val bluetoothManager: BluetoothManager =
@@ -65,8 +68,8 @@ class ImprovManager(
                         )
                     )
 
-                    gatt.discoverServices()
-
+                    operationQueue.add(RequestLargeMtu)
+                    operationQueue.add(DiscoverServices)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.w(TAG, "Successfully disconnected from $deviceAddress")
                     gatt.close()
@@ -88,10 +91,10 @@ class ImprovManager(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            val value =
-                characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
             when (characteristic.uuid) {
                 UUID_CHAR_CURRENT_STATE -> {
+                    val value =
+                        characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
                     Log.i(TAG, "Current State has changed to $value.")
                     val deviceState = DeviceState.values().firstOrNull { it.value == value }
                     if (deviceState != null)
@@ -100,12 +103,22 @@ class ImprovManager(
                         Log.e(TAG, "Unable to determine Current State")
                 }
                 UUID_CHAR_ERROR_STATE -> {
+                    val value =
+                        characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
                     Log.i(TAG, "Error State has changed to $value.")
                     val errorState = ErrorState.values().firstOrNull { it.value == value }
                     if (errorState != null)
                         callback.onErrorStateChange(errorState)
                     else
                         Log.e(TAG, "Unable to determine Error State")
+                }
+                UUID_CHAR_RPC_RESULT -> {
+                    Log.i(TAG, "RPC Result has changed to ${characteristic.value.joinToString()}.")
+                    val result = extractResultStrings(characteristic.value)
+                    if (result != null)
+                        callback.onRpcResult(result)
+                    else
+                        Log.w(TAG, "Received empty RPC Result")
                 }
             }
         }
@@ -189,6 +202,26 @@ class ImprovManager(
                 }
             } else
                 Log.e(TAG, "Unable to register for Error State Notifications")
+
+            val rpcResultChar = service.getCharacteristic(UUID_CHAR_RPC_RESULT)
+            enqueueOperation(CharacteristicRead(rpcResultChar))
+            if (gatt.setCharacteristicNotification(rpcResultChar, true)) {
+                Log.i(TAG, "Registered for RPC Result Notifications")
+                rpcResultChar.descriptors.firstOrNull()?.let {
+                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    enqueueOperation(DescriptorWrite(it))
+                }
+            } else
+                Log.e(TAG, "Unable to register for RPC Result Notifications")
+
+            if (pendingOperation is DiscoverServices)
+                signalEndOfOperation()
+        }
+
+        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
+            Log.d(TAG, "MTU change to $mtu returned status: $status")
+            if (pendingOperation is RequestLargeMtu)
+                signalEndOfOperation()
         }
     }
 
@@ -259,6 +292,35 @@ class ImprovManager(
         enqueueOperation(CharacteristicWrite(rpc))
     }
 
+    private fun extractResultStrings(data: ByteArray): List<String>? {
+        // Ensure the data is at least 3 bytes long to read the first string length
+        if (data.size < 3) return null
+
+        val strings = mutableListOf<String>()
+        var currentIndex = 2 // Start after the first two bytes
+
+        while (currentIndex < data.size) {
+            // Get the length of the current string
+            val stringLength = data[currentIndex].toInt()
+            currentIndex++
+
+            // Ensure there are enough bytes left for the current string
+            if (currentIndex + stringLength > data.size) return strings
+
+            // Extract the string and add it to the list
+            try {
+                val string = data.decodeToString(currentIndex, currentIndex + stringLength, throwOnInvalidSequence = true)
+                currentIndex += stringLength
+                strings += string
+            } catch (e: Exception) {
+                Log.e(TAG, "Invalid string encoding, returning strings previously decoded")
+                return strings
+            }
+        }
+
+        return strings
+    }
+
     private val operationQueue = ConcurrentLinkedQueue<BleOperationType>()
     private var pendingOperation: BleOperationType? = null
 
@@ -290,6 +352,13 @@ class ImprovManager(
             is Disconnect -> {
                 // Noop?
             }
+            is DiscoverServices -> {
+                if (bluetoothGatt != null) {
+                    bluetoothGatt!!.discoverServices()
+                } else {
+                    Log.e(TAG, "Tried to discover services without device connected.")
+                }
+            }
             is CharacteristicWrite -> {
                 if (bluetoothGatt != null) {
                     bluetoothGatt!!.writeCharacteristic(operation.char)
@@ -309,6 +378,13 @@ class ImprovManager(
                     bluetoothGatt!!.writeDescriptor(operation.desc)
                 } else {
                     Log.e(TAG, "Tried writing descriptor without device connected.")
+                }
+            }
+            is RequestLargeMtu -> {
+                if (bluetoothGatt != null) {
+                    bluetoothGatt!!.requestMtu(517)
+                } else {
+                    Log.e(TAG, "Tried requesting MTU without device connected.")
                 }
             }
             else -> {
