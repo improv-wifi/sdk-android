@@ -161,7 +161,7 @@ fun ImprovDeviceList(
                 onClick = { connect(it) }
             ) {
                 Column {
-                    Text(it.name)
+                    Text(it.name ?: it.address)
                     Text(
                         text = it.address,
                         style = MaterialTheme.typography.caption
