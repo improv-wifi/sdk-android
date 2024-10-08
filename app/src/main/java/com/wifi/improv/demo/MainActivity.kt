@@ -2,10 +2,12 @@ package com.wifi.improv.demo
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +19,6 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.wifi.improv.DeviceState
 import com.wifi.improv.ImprovDevice
@@ -28,29 +29,36 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val TAG = "MainActivity"
-        const val LOCATION_PERM_REQUEST = 42
     }
 
     private lateinit var improv: ImprovManager
     private val viewModel: ImprovViewModel by viewModels()
 
-    private fun findDevices() {
-        // make sure we have permissions!
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_DENIED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERM_REQUEST
-            )
-        } else {
+    private val requestPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        if (results.all { it.value }) {
+            Log.i(TAG, "Got permission!")
             improv.findDevices()
         }
     }
 
+    private fun findDevices() {
+        // make sure we have permissions!
+        val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (requiredPermissions.any { permission ->
+                ContextCompat.checkSelfPermission(
+                    this,
+                    permission
+                ) == PackageManager.PERMISSION_DENIED
+            }) {
+            requestPermission.launch(requiredPermissions)
+        } else {
+            improv.findDevices()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,18 +72,6 @@ class MainActivity : ComponentActivity() {
                 connect = { improv.connectToDevice(it) },
                 sendWifi = { ssid, pass -> improv.sendWifi(ssid, pass) }
             )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERM_REQUEST && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            Log.i(TAG, "Got location permission!")
-            improv.findDevices()
         }
     }
 }

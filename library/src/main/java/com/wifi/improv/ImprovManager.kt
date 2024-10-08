@@ -1,5 +1,6 @@
 package com.wifi.improv
 
+import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -11,6 +12,7 @@ import android.util.Log
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
+@SuppressLint("MissingPermission") // Permission checks are expected to be done by the app
 class ImprovManager(
     private val context: Context,
     private val callback: ImprovManagerCallback
