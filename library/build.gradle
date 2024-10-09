@@ -12,7 +12,6 @@ android {
         minSdk 21
         targetSdk 34
 
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
     }
 
@@ -29,9 +28,4 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
-}
-
-dependencies {
-    implementation 'androidx.core:core-ktx:1.13.1'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
 }
