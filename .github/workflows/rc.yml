@@ -39,3 +39,14 @@ jobs:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./app/build/outputs/apk/debug/app-debug.apk
           asset_name: demo.apk
+
+      - name: Publish to Maven Central
+        if: github.event.release.draft == 'false'
+        run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+        env:
+          IMPROV_LIB_RELEASE: ${{ github.event.release.tag_name }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PGP_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_PGP_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PGP_KEY_PASSWORD }}

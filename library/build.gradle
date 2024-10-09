@@ -1,6 +1,10 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
+    id 'com.vanniktech.maven.publish'
 }
 
 android {
@@ -27,5 +31,40 @@ android {
     }
     kotlinOptions {
         jvmTarget = '1.8'
+    }
+}
+
+mavenPublishing {
+    configure(new AndroidSingleVariantLibrary("release", true, true))
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+
+    coordinates("org.openhomefoundation.improv-wifi", "sdk-android", "${System.getenv('IMPROV_LIB_RELEASE')}")
+
+    pom {
+        name = "Android SDK for Improv Wi-Fi"
+        description = "Easily detect and connect Improv Wi-Fi devices to the network on Android using BLE"
+        inceptionYear = "2021"
+        url = "https://github.com/improv-wifi/sdk-android"
+        licenses {
+            license {
+                name = "Apache License, Version 2.0"
+                url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+        developers {
+            developer {
+                id = "improv-wifi"
+                name = "Improv Wi-Fi"
+                url = "https://github.com/improv-wifi"
+            }
+        }
+        scm {
+            url = "https://github.com/improv-wifi/sdk-android"
+            connection = "scm:git:git://github.com/improv-wifi/sdk-android.git"
+            developerConnection = "scm:git:ssh://git@github.com/improv-wifi/sdk-android.git"
+        }
     }
 }
