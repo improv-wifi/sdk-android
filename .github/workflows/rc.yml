@@ -41,7 +41,7 @@ jobs:
           asset_name: demo.apk
 
       - name: Publish to Maven Central
-        if: github.event.release.draft == 'false'
+        if: github.event.release.draft == false
         run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
         env:
           IMPROV_LIB_RELEASE: ${{ github.event.release.tag_name }}
